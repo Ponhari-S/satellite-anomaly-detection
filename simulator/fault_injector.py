@@ -1,7 +1,5 @@
-
 import random
-from replay import replay_channel
-
+from replay import replay_channel, _get_full_dataframe
 
 def inject_spike(reading: dict, baseline_std: float) -> dict:
     direction = random.choice([1, -1])
@@ -29,8 +27,7 @@ def inject_drift(reading: dict, step_index: int, baseline_std: float) -> dict:
 
 
 def replay_with_faults(csv_path: str, channel: str, total_seconds: float, max_gap: float, fault_every_n: int = 500, fault_types=("spike", "dropout", "drift")):
-    import pandas as pd
-    df = pd.read_csv(csv_path)
+    df = _get_full_dataframe(csv_path)
     channel_values = df[df["channel"] == channel]["value"]
     baseline_std = channel_values.std()
 
@@ -38,7 +35,7 @@ def replay_with_faults(csv_path: str, channel: str, total_seconds: float, max_ga
     fault_type_index = 0
 
     for i, reading in enumerate(replay_channel(csv_path, channel, total_seconds, max_gap)):
-        reading["injected_fault"] = None  # default: no fault
+        reading["injected_fault"] = None  # default: no
 
         if i > 0 and i % fault_every_n == 0:
             fault_type = fault_types[fault_type_index % len(fault_types)]

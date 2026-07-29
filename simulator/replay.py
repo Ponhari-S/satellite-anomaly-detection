@@ -1,14 +1,26 @@
 import pandas as pd
 import time
+import threading
 
 CHANNEL_TO_REPLAY = "CADC0873"
-TOTAL_PLAYBACK_SECONDS = 60      
-MAX_GAP_SECONDS = 2.0            
+TOTAL_PLAYBACK_SECONDS = 60
+MAX_GAP_SECONDS = 2.0
+_raw_csv_cache = {}
+_cache_lock = threading.Lock()
+
+
+def _get_full_dataframe(csv_path: str) -> pd.DataFrame:
+    if csv_path in _raw_csv_cache:
+        return _raw_csv_cache[csv_path]
+
+    with _cache_lock:
+        if csv_path not in _raw_csv_cache:
+            _raw_csv_cache[csv_path] = pd.read_csv(csv_path)
+    return _raw_csv_cache[csv_path]
 
 
 def load_channel_data(csv_path: str, channel: str) -> pd.DataFrame:
-    """Load raw telemetry and return one channel, sorted by time."""
-    df = pd.read_csv(csv_path)
+    df = _get_full_dataframe(csv_path)
     sub = df[df["channel"] == channel].copy()
     sub["timestamp"] = pd.to_datetime(sub["timestamp"])
     sub = sub.sort_values("timestamp").reset_index(drop=True)
@@ -33,21 +45,32 @@ def compute_playback_delays(sub: pd.DataFrame, total_seconds: float, max_gap: fl
 
 
 def replay_channel(csv_path: str, channel: str, total_seconds: float, max_gap: float):
+    """
+    Generator that yields one telemetry reading at a time, with a
+    realistic (compressed) delay between readings — just like a live feed.
+
+    Yields dicts like:
+        {"channel": "CADC0873", "timestamp": ..., "value": ..., "anomaly": 0}
+    """
     sub = load_channel_data(csv_path, channel)
     delays = compute_playback_delays(sub, total_seconds, max_gap)
 
     print(f"Replaying channel '{channel}' — {len(sub)} readings over ~{total_seconds}s\n")
+    channels_arr = sub["channel"].to_numpy()
+    timestamps_arr = sub["timestamp"].astype(str).to_numpy()
+    values_arr = sub["value"].to_numpy()
+    anomalies_arr = sub["anomaly"].to_numpy()
 
-    for i, row in sub.iterrows():
+    for i in range(len(sub)):
         delay = delays[i]
         if delay > 0:
             time.sleep(delay)
 
         reading = {
-            "channel": row["channel"],
-            "timestamp": str(row["timestamp"]),
-            "value": row["value"],
-            "anomaly": int(row["anomaly"]),
+            "channel": channels_arr[i],
+            "timestamp": timestamps_arr[i],
+            "value": values_arr[i],
+            "anomaly": int(anomalies_arr[i]),
         }
         yield reading
 
