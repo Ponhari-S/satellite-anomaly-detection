@@ -45,6 +45,7 @@ def replay_channel(csv_path: str, channel: str, total_seconds: float, max_gap: f
     timestamps_arr = sub["timestamp"].astype(str).to_numpy()
     values_arr = sub["value"].to_numpy()
     anomalies_arr = sub["anomaly"].to_numpy()
+    segments_arr = sub["segment"].to_numpy()  # needed downstream to detect true segment boundaries
 
     for i in range(len(sub)):
         delay = delays[i]
@@ -56,6 +57,7 @@ def replay_channel(csv_path: str, channel: str, total_seconds: float, max_gap: f
             "timestamp": timestamps_arr[i],
             "value": values_arr[i],
             "anomaly": int(anomalies_arr[i]),
+            "segment": int(segments_arr[i]),
         }
         yield reading
 
