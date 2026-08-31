@@ -104,7 +104,7 @@ def build_graph_snapshots(raw_df: pd.DataFrame, window: str = "1D"):
                     continue
                 va, vb = channel_values[a], channel_values[b]
                 n = min(len(va), len(vb))
-                if n >= 3:
+                if n >= 3 and np.std(va[:n]) > 0 and np.std(vb[:n]) > 0:
                     corr = np.corrcoef(va[:n], vb[:n])[0, 1]
                     adjacency[a, b] = 0.0 if np.isnan(corr) else abs(corr)
 
