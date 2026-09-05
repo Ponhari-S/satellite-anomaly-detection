@@ -1,69 +1,59 @@
-"""Swappable telemetry sources used by the stream endpoint.
-
-Replace ``real_simulator_source`` with an adapter for a future simulator API;
-the WebSocket route does not need to change.
-"""
+"""Multi-channel telemetry source for live WebSocket streaming."""
 
 import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
+import pandas as pd
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 RAW_DATASET_PATH = ROOT_DIR / "datasets" / "dataset.csv"
-DEFAULT_CHANNEL = "CADC0873"
+
+_cached_df = None
 
 
-def _normalise_simulator_reading(reading: dict) -> dict:
-    """Adapt the current replay.py output to the raw-telemetry schema."""
-    anomaly = int(reading["anomaly"])
-    return {
-        "channel": str(reading["channel"]),
-        "timestamp": str(reading["timestamp"]),
-        "value": float(reading["value"]),
-        # replay.py currently omits these raw CSV columns, so preserve the
-        # expected API contract with safe metadata defaults until it exposes them.
-        "label": str(reading.get("label", "anomaly" if anomaly else "normal")),
-        "sampling": int(reading.get("sampling", 1)),
-        "anomaly": anomaly,
-        "segment": int(reading.get("segment", 0)),
-        "train": int(reading.get("train", 0)),
-    }
+def _get_chronological_records() -> pd.DataFrame:
+    global _cached_df
+    if _cached_df is None:
+        df = pd.read_csv(RAW_DATASET_PATH)
+        df["timestamp_dt"] = pd.to_datetime(df["timestamp"])
+        # Sort chronologically so all 9 channels interleave smoothly across the mission timeline
+        df = df.sort_values("timestamp_dt").reset_index(drop=True)
+        df["timestamp_str"] = df["timestamp_dt"].dt.strftime("%Y-%m-%d %H:%M:%S")
+        _cached_df = df
+    return _cached_df
 
 
-async def real_simulator_source(
-    channel: str = DEFAULT_CHANNEL,
-    total_seconds: float = 60.0,
-    max_gap: float = 2.0,
+async def multi_channel_telemetry_source(
+    delay_between_frames: float = 0.08,
 ) -> AsyncIterator[dict]:
-    """Yield the repository's working replay simulator output asynchronously."""
-    from simulator.replay import replay_channel
+    """Yield all 9 OPS-SAT channels chronologically in real-time."""
+    df = await asyncio.to_thread(_get_chronological_records)
 
-    iterator = replay_channel(str(RAW_DATASET_PATH), channel, total_seconds, max_gap)
-    sentinel = object()
+    channels = df["channel"].to_numpy()
+    timestamps = df["timestamp_str"].to_numpy()
+    values = df["value"].to_numpy()
+    anomalies = df["anomaly"].to_numpy()
+    labels = df["label"].to_numpy()
+    segments = df["segment"].to_numpy()
+    samplings = df["sampling"].to_numpy()
+    trains = df["train"].to_numpy()
+
+    total = len(df)
     while True:
-        reading = await asyncio.to_thread(next, iterator, sentinel)
-        if reading is sentinel:
-            return
-        yield _normalise_simulator_reading(reading)
+        for i in range(total):
+            anomaly_val = int(anomalies[i])
+            reading = {
+                "channel": str(channels[i]),
+                "timestamp": str(timestamps[i]),
+                "value": float(values[i]),
+                "label": str(labels[i]),
+                "sampling": int(samplings[i]),
+                "anomaly": anomaly_val,
+                "segment": int(segments[i]),
+                "train": int(trains[i]),
+            }
+            yield reading
+            await asyncio.sleep(delay_between_frames)
 
 
-async def dummy_telemetry_source() -> AsyncIterator[dict]:
-    """Fallback source retained for local development if the simulator is unavailable."""
-    import random
-    from datetime import datetime, timezone
-
-    segment = 0
-    while True:
-        segment += 1
-        anomaly = random.choice((0, 0, 0, 1))
-        yield {
-            "channel": "DUMMY001", "timestamp": datetime.now(timezone.utc).isoformat(),
-            "value": random.uniform(-0.001, 0.001), "label": "anomaly" if anomaly else "normal",
-            "sampling": 1, "anomaly": anomaly, "segment": segment, "train": 0,
-        }
-        await asyncio.sleep(1)
-
-
-# The replay simulator is available now. Switch this assignment to
-# dummy_telemetry_source when developing without the repository dataset.
-telemetry_source = real_simulator_source
+telemetry_source = multi_channel_telemetry_source

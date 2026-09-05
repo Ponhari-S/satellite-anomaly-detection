@@ -5,8 +5,9 @@ import logging
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.feature_extractor import features_from_telemetry
 from backend.model_service import predict
-from backend.pipeline import results, score_and_store
+from backend.pipeline import results
 from backend.schemas import FeatureInput, PredictionResponse, StoredResult
 from backend.telemetry_source import telemetry_source
 
@@ -20,6 +21,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"message": "OrbitGuard Backend is running. Visit /docs for API documentation."}
+
 
 @app.get("/health")
 def health() -> dict[str, str]:
@@ -47,10 +53,22 @@ async def stream_telemetry(websocket: WebSocket) -> None:
     await websocket.accept()
     try:
         async for reading in telemetry_source():
-            result = score_and_store(reading)
-            # Send the normalized raw telemetry row plus its live model result.
-            await websocket.send_json({**reading, "prediction": result.prediction,
-                                       "probability": result.probability})
+            feat_obj = features_from_telemetry(reading)
+            result = predict(feat_obj)
+            stored = StoredResult(
+                timestamp=str(reading["timestamp"]),
+                channel=str(reading["channel"]),
+                prediction=result.prediction,
+                probability=result.probability,
+            )
+            results.append(stored)
+            # Send the normalized raw telemetry row plus its live model result and extracted feature vector.
+            await websocket.send_json({
+                **reading,
+                "prediction": result.prediction,
+                "probability": result.probability,
+                "features": feat_obj.model_dump(),
+            })
     except WebSocketDisconnect:
         logger.info("Telemetry client disconnected")
     except Exception:
