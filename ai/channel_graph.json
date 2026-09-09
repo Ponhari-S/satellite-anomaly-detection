@@ -1,0 +1,110 @@
+{
+  "channels": [
+    "CADC0872",
+    "CADC0873",
+    "CADC0874",
+    "CADC0884",
+    "CADC0886",
+    "CADC0888",
+    "CADC0890",
+    "CADC0892",
+    "CADC0894"
+  ],
+  "edges": [
+    {
+      "source": "CADC0884",
+      "target": "CADC0890",
+      "strength": 0.574
+    },
+    {
+      "source": "CADC0872",
+      "target": "CADC0873",
+      "strength": 0.396
+    },
+    {
+      "source": "CADC0874",
+      "target": "CADC0890",
+      "strength": 0.358
+    },
+    {
+      "source": "CADC0884",
+      "target": "CADC0886",
+      "strength": 0.352
+    },
+    {
+      "source": "CADC0874",
+      "target": "CADC0894",
+      "strength": 0.294
+    },
+    {
+      "source": "CADC0884",
+      "target": "CADC0888",
+      "strength": 0.252
+    },
+    {
+      "source": "CADC0872",
+      "target": "CADC0874",
+      "strength": 0.187
+    },
+    {
+      "source": "CADC0892",
+      "target": "CADC0894",
+      "strength": 0.187
+    },
+    {
+      "source": "CADC0873",
+      "target": "CADC0892",
+      "strength": 0.182
+    },
+    {
+      "source": "CADC0872",
+      "target": "CADC0892",
+      "strength": 0.181
+    },
+    {
+      "source": "CADC0890",
+      "target": "CADC0894",
+      "strength": 0.176
+    },
+    {
+      "source": "CADC0873",
+      "target": "CADC0874",
+      "strength": 0.17
+    },
+    {
+      "source": "CADC0873",
+      "target": "CADC0890",
+      "strength": 0.162
+    },
+    {
+      "source": "CADC0872",
+      "target": "CADC0890",
+      "strength": 0.137
+    },
+    {
+      "source": "CADC0872",
+      "target": "CADC0886",
+      "strength": 0.131
+    },
+    {
+      "source": "CADC0872",
+      "target": "CADC0894",
+      "strength": 0.124
+    },
+    {
+      "source": "CADC0873",
+      "target": "CADC0894",
+      "strength": 0.119
+    },
+    {
+      "source": "CADC0874",
+      "target": "CADC0884",
+      "strength": 0.109
+    },
+    {
+      "source": "CADC0873",
+      "target": "CADC0884",
+      "strength": 0.108
+    }
+  ]
+}
