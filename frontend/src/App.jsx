@@ -14,21 +14,39 @@ const CHANNELS = [
   { id: 'CADC0894', name: 'PD 6', group: 'EPS', unit: 'V', x: 300, y: 255 },
 ]
 
-const EDGES = [
+const FALLBACK_EDGES = [
   ['CADC0872', 'CADC0873'],
-  ['CADC0873', 'CADC0874'],
-  ['CADC0872', 'CADC0874'],
-  ['CADC0873', 'CADC0888'],
-  ['CADC0884', 'CADC0886'],
-  ['CADC0886', 'CADC0888'],
-  ['CADC0888', 'CADC0890'],
-  ['CADC0890', 'CADC0892'],
-  ['CADC0888', 'CADC0894'],
-  ['CADC0884', 'CADC0872'],
-  ['CADC0892', 'CADC0874'],
+  ['CADC0884', 'CADC0890'],
 ]
 
+function useChannelGraph() {
+  const [edges, setEdges] = useState(FALLBACK_EDGES)
+  const [graphSource, setGraphSource] = useState('loading')
+
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/channel-graph')
+      .then((res) => res.json())
+      .then((data) => {
+        const formatted = data.edges.map((e) => [e.source, e.target, e.strength])
+        setEdges(formatted)
+        setGraphSource('real')
+        console.log(`[channel-graph] loaded ${formatted.length} real, computed edges`)
+      })
+      .catch((err) => {
+        console.error('[channel-graph] failed to load real edges, using fallback:', err)
+        setEdges(FALLBACK_EDGES)
+        setGraphSource('fallback')
+      })
+  }, [])
+
+  return { edges, graphSource }
+}
+
 export default function App() {
+  const { edges: EDGES, graphSource: channelGraphSource } = useChannelGraph()
+  const edgesRef = useRef(EDGES)
+  edgesRef.current = EDGES
+
   const [streamStatus, setStreamStatus] = useState('connecting')
   const [readings, setReadings] = useState([])
   const [isPaused, setIsPaused] = useState(false)
@@ -39,7 +57,6 @@ export default function App() {
   const [selectedReading, setSelectedReading] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date().toUTCString())
 
-  // Technician Incident Tickets (Continuous Sequential Log)
   const [incidents, setIncidents] = useState([])
   const [selectedIncidentId, setSelectedIncidentId] = useState(null)
   const [incidentTab, setIncidentTab] = useState('open')
@@ -48,7 +65,6 @@ export default function App() {
 
   const wsRef = useRef(null)
 
-  // Real-time UTC clock
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date().toUTCString())
@@ -56,7 +72,6 @@ export default function App() {
     return () => clearInterval(timer)
   }, [])
 
-  // WebSocket telemetry stream
   useEffect(() => {
     let ws = null
     let reconnectTimeout = null
@@ -73,22 +88,21 @@ export default function App() {
           const data = JSON.parse(event.data)
           setReadings((prev) => [data, ...prev].slice(0, 600))
 
-          // When anomaly is detected, generate an individual persistent ticket
           if (data.prediction === 1) {
             const chMeta = CHANNELS.find((c) => c.id === data.channel)
             const isMag = data.channel.startsWith('CADC087')
             const now = Date.now()
 
             const lastTime = lastIncidentTimeRef.current[data.channel] || 0
-            // 4-second interval per channel so distinct excursion events create individual tickets
             if (now - lastTime > 4000) {
               lastIncidentTimeRef.current[data.channel] = now
               incidentCounterRef.current += 1
               const newId = `INC-${incidentCounterRef.current}`
 
-              const correlated = EDGES.filter(
-                ([a, b]) => a === data.channel || b === data.channel
-              ).map(([a, b]) => (a === data.channel ? b : a))
+              const correlated = edgesRef.current
+                .filter(([a, b]) => a === data.channel || b === data.channel)
+                .sort((e1, e2) => (e2[2] || 0) - (e1[2] || 0))
+                .map(([a, b]) => (a === data.channel ? b : a))
 
               const newIncident = {
                 id: newId,
@@ -138,7 +152,6 @@ export default function App() {
     }
   }, [])
 
-  // Fix / Resolve single incident
   const handleResolveIncident = (id) => {
     setIncidents((prev) =>
       prev.map((inc) =>
@@ -153,7 +166,6 @@ export default function App() {
     )
   }
 
-  // Fix / Resolve ALL open incidents
   const handleResolveAll = () => {
     const timeStr = new Date().toLocaleTimeString()
     setIncidents((prev) =>
@@ -168,7 +180,6 @@ export default function App() {
   const openIncidents = useMemo(() => incidents.filter((i) => i.status === 'OPEN'), [incidents])
   const resolvedIncidents = useMemo(() => incidents.filter((i) => i.status === 'RESOLVED'), [incidents])
 
-  // Active Incident selected by technician
   const activeIncident = useMemo(() => {
     if (selectedIncidentId) {
       const found = incidents.find((i) => i.id === selectedIncidentId)
@@ -177,7 +188,6 @@ export default function App() {
     return openIncidents[0] || incidents[0] || null
   }, [selectedIncidentId, incidents, openIncidents])
 
-  // Per-Channel State Aggregation
   const channelStates = useMemo(() => {
     const map = {}
     CHANNELS.forEach((ch) => {
@@ -195,7 +205,6 @@ export default function App() {
     return map
   }, [readings, openIncidents])
 
-  // Oscilloscope waveform data
   const channelWaveform = useMemo(() => {
     return readings
       .filter((r) => r.channel === selectedChannel)
@@ -205,11 +214,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black text-white font-sans antialiased flex flex-col selection:bg-emerald-600 selection:text-white">
-      {/* ========================================================================= */}
-      {/* 1. TOP MISSION BAR                                                        */}
-      {/* ========================================================================= */}
       <header className="border-b border-[#22222E] bg-[#0A0A0E] px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
-        {/* Left: Mission Identity */}
         <div className="flex items-center gap-3">
           <div className="bg-amber-500/15 border border-amber-400 text-amber-300 font-mono font-bold px-3 py-1 text-xs tracking-wider rounded">
             ORBITGUARD
@@ -227,7 +232,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center: Live Metrics & Problem Queue Count */}
         <div className="flex items-center gap-3 font-mono text-xs">
           <div className="flex items-center gap-2 bg-[#121218] px-3.5 py-1.5 rounded border border-[#262633]">
             <span
@@ -240,7 +244,6 @@ export default function App() {
             </span>
           </div>
 
-          {/* Open Issues Badge */}
           <div
             className={`px-3 py-1.5 rounded border font-bold flex items-center gap-1.5 ${
               openIncidents.length > 0
@@ -259,7 +262,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right: Stream Controls */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsPaused(!isPaused)}
@@ -274,15 +276,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* ========================================================================= */}
-      {/* 2. MAIN 2-COLUMN WORKSPACE                                                */}
-      {/* ========================================================================= */}
       <main className="flex-1 p-4 grid grid-cols-1 xl:grid-cols-12 gap-4 bg-black">
-        {/* ======================================================================= */}
-        {/* LEFT COLUMN (7 COLS): OSCILLOSCOPE + CLEAN TOPOLOGY GRAPH               */}
-        {/* ======================================================================= */}
         <div className="xl:col-span-7 flex flex-col gap-4">
-          {/* Section A: Telemetry Oscilloscope */}
           <div className="border border-[#22222E] bg-[#0E0E14] rounded-lg p-4 shadow flex flex-col">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#22222E] pb-3 mb-3">
               <div>
@@ -297,7 +292,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 9 Channel Selector Buttons */}
               <div className="flex flex-wrap items-center gap-1.5">
                 {CHANNELS.map((ch) => {
                   const isSel = ch.id === selectedChannel
@@ -328,7 +322,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Waveform Chart Display */}
             <div className="bg-black border border-[#22222E] rounded-md p-3 h-56 flex items-center justify-center">
               {channelWaveform.length < 2 ? (
                 <div className="text-slate-400 font-mono text-sm">
@@ -343,7 +336,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Quick Metrics Bar */}
             <div className="mt-3 pt-2.5 border-t border-[#22222E] grid grid-cols-3 gap-3 font-mono text-xs">
               <div className="bg-[#14141C] p-2.5 rounded border border-[#262633]">
                 <span className="text-slate-400 block text-[11px]">LATEST READING</span>
@@ -383,7 +375,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Section B: Dynamic Sensor Graph & Propagation Topology */}
           <div className="border border-[#22222E] bg-[#0E0E14] rounded-lg p-4 shadow flex flex-col flex-1">
             <div className="flex items-center justify-between border-b border-[#22222E] pb-2 mb-3">
               <div>
@@ -391,15 +382,29 @@ export default function App() {
                   DYNAMIC GRAPH TOPOLOGY & ROOT CAUSE PROPAGATION
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Shows physical inter-sensor connections. Red nodes indicate active root/affected faults.
+                  Edge thickness reflects real statistical correlation computed from telemetry data. Red nodes indicate active root/affected faults.
                 </p>
               </div>
-              <span className="text-xs font-mono text-white bg-[#181824] px-3 py-1 rounded border border-[#2C2C3C]">
-                Click any sensor node to inspect
+              <span
+                className={`text-xs font-mono px-3 py-1 rounded border ${
+                  channelGraphSource === 'real'
+                    ? 'text-emerald-300 bg-[#0F2A1F] border-emerald-800'
+                    : 'text-amber-300 bg-[#2A1F0F] border-amber-800'
+                }`}
+                title={
+                  channelGraphSource === 'real'
+                    ? 'Loaded from /channel-graph — computed from real telemetry correlations'
+                    : 'Backend unreachable — showing fallback layout, not real data'
+                }
+              >
+                {channelGraphSource === 'real'
+                  ? 'Live computed graph'
+                  : channelGraphSource === 'loading'
+                  ? 'Loading graph...'
+                  : 'Fallback layout'}
               </span>
             </div>
 
-            {/* Symmetrical Topology Graph */}
             <div className="bg-black border border-[#22222E] rounded-md p-2 h-72 flex items-center justify-center">
               <BigTopologyGraph
                 channels={CHANNELS}
@@ -413,11 +418,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* ======================================================================= */}
-        {/* RIGHT COLUMN (5 COLS): ROOT CAUSE & CONTINUOUS INCIDENT INBOX           */}
-        {/* ======================================================================= */}
         <div className="xl:col-span-5 flex flex-col gap-4">
-          {/* Active / Selected Incident Remediation Box */}
           <div
             className={`rounded-lg p-5 border transition-all shadow-md flex flex-col gap-3.5 ${
               activeIncident && activeIncident.status === 'OPEN'
@@ -425,7 +426,6 @@ export default function App() {
                 : 'bg-[#0E0E14] border-[#22222E]'
             }`}
           >
-            {/* Header with Fix Button */}
             <div className="flex items-center justify-between border-b border-[#22222E] pb-3">
               <div className="flex items-center gap-2">
                 <span
@@ -457,7 +457,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Root Fault Detail Box */}
             {activeIncident ? (
               <>
                 <div className="bg-[#14141C] border border-[#262633] rounded-md p-3.5 flex flex-col gap-1">
@@ -506,7 +505,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* The Fix Action Box */}
                 <div className="bg-[#1C1608] border border-amber-500/80 p-3.5 rounded-md flex flex-col gap-1">
                   <span className="text-xs font-mono font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                     <span>⚡ RECOMMENDED TECHNICIAN REMEDIATION (FDIR):</span>
@@ -524,7 +522,6 @@ export default function App() {
             )}
           </div>
 
-          {/* Technician Problem Inbox (Scrollable Log of all Incident Tickets) */}
           <div className="border border-[#22222E] bg-[#0E0E14] rounded-lg p-4 shadow flex flex-col flex-1 min-h-[260px]">
             <div className="flex items-center justify-between border-b border-[#22222E] pb-2.5 mb-2.5">
               <div className="flex items-center gap-2">
@@ -536,7 +533,6 @@ export default function App() {
                 </span>
               </div>
 
-              {/* Tabs + Resolve All */}
               <div className="flex items-center gap-2 font-mono text-xs">
                 {openIncidents.length > 1 && (
                   <button
@@ -572,7 +568,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Smooth Scrollable Incident Feed */}
             <div className="flex-1 overflow-y-auto max-h-[300px] space-y-2 pr-1.5 font-mono text-xs">
               {(incidentTab === 'open' ? openIncidents : resolvedIncidents).length === 0 ? (
                 <div className="h-full flex items-center justify-center p-6 text-center text-slate-400 text-xs">
@@ -639,9 +634,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* ========================================================================= */}
-      {/* 3. FOOTER                                                                 */}
-      {/* ========================================================================= */}
       <footer className="border-t border-[#22222E] bg-[#0A0A0E] px-6 py-2.5 flex items-center justify-between text-xs font-mono">
         <div className="text-slate-400">
           LOGGED FRAMES: <span className="text-white font-bold">{readings.length}</span> | ACTIVE SENSORS:{' '}
@@ -655,9 +647,6 @@ export default function App() {
   )
 }
 
-// =============================================================================
-// SUB-COMPONENTS: BIG WAVEFORM & CLEAN TOPOLOGY GRAPH
-// =============================================================================
 
 function BigWaveformChart({ data, unit, onSelectPoint }) {
   if (!data || data.length < 2) return null
@@ -684,12 +673,10 @@ function BigWaveformChart({ data, unit, onSelectPoint }) {
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full font-mono select-none">
-      {/* Grid Lines */}
       <line x1={pad.left} y1={pad.top} x2={width - pad.right} y2={pad.top} stroke="#22222E" strokeDasharray="3 3" />
       <line x1={pad.left} y1={(pad.top + height - pad.bottom) / 2} x2={width - pad.right} y2={(pad.top + height - pad.bottom) / 2} stroke="#1A1A24" strokeDasharray="2 2" />
       <line x1={pad.left} y1={height - pad.bottom} x2={width - pad.right} y2={height - pad.bottom} stroke="#22222E" />
 
-      {/* Axis Value Labels */}
       <text x={pad.left - 10} y={pad.top + 4} fill="#CBD5E1" fontSize="11" fontWeight="bold" textAnchor="end">
         {maxVal.toExponential(2)} {unit}
       </text>
@@ -697,10 +684,8 @@ function BigWaveformChart({ data, unit, onSelectPoint }) {
         {minVal.toExponential(2)} {unit}
       </text>
 
-      {/* Telemetry Waveform Line */}
       <path d={pathD} fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
-      {/* Point markers */}
       {data.map((d, i) => {
         const cx = getX(i)
         const cy = getY(Number(d.value))
@@ -741,20 +726,17 @@ function BigTopologyGraph({
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full select-none font-mono">
-      {/* 1. ADCS Cluster Box */}
       <rect x="25" y="15" width="550" height="105" fill="#0C0C12" rx="6" stroke="#252535" strokeDasharray="3 3" />
       <text x="38" y="34" fill="#FBBF24" fontSize="11" fontWeight="bold">
         ADCS / ATTITUDE SENSORS (CADC0872 - CADC0874)
       </text>
 
-      {/* 2. EPS Cluster Box */}
       <rect x="25" y="135" width="550" height="150" fill="#0C0C12" rx="6" stroke="#252535" strokeDasharray="3 3" />
       <text x="38" y="154" fill="#CBD5E1" fontSize="11" fontWeight="bold">
         EPS / SOLAR SENSORS (CADC0884 - CADC0894)
       </text>
 
-      {/* 3. Correlation Edges */}
-      {edges.map(([idA, idB], idx) => {
+      {edges.map(([idA, idB, strength], idx) => {
         const nodeA = nodeMap[idA]
         const nodeB = nodeMap[idB]
         if (!nodeA || !nodeB) return null
@@ -762,6 +744,7 @@ function BigTopologyGraph({
         const isRootA = idA === rootChannel
         const isRootB = idB === rootChannel
         const isCorrelated = isRootA || isRootB
+        const baseWidth = strength != null ? Math.max(1, strength * 5) : 1.5
 
         return (
           <line
@@ -771,13 +754,12 @@ function BigTopologyGraph({
             x2={nodeB.x}
             y2={nodeB.y}
             stroke={isCorrelated ? '#EF4444' : '#3B3B4F'}
-            strokeWidth={isCorrelated ? 3 : 1.5}
+            strokeWidth={isCorrelated ? 3 : baseWidth}
             strokeDasharray={isCorrelated ? 'none' : '3 3'}
           />
         )
       })}
 
-      {/* 4. 9 Sensor Nodes (Warm Amber/Emerald styling with Zero Collision) */}
       {channels.map((ch) => {
         const state = channelStates[ch.id]
         const isAnomaly = state?.isAnomaly
@@ -790,7 +772,6 @@ function BigTopologyGraph({
             className="cursor-pointer"
             onClick={() => onSelectChannel && onSelectChannel(ch.id)}
           >
-            {/* Target Pulse Ring if Root Cause */}
             {isRoot && (
               <circle
                 cx={ch.x}
@@ -803,7 +784,6 @@ function BigTopologyGraph({
               />
             )}
 
-            {/* Node Outer Circle */}
             <circle
               cx={ch.x}
               cy={ch.y}
@@ -813,7 +793,6 @@ function BigTopologyGraph({
               strokeWidth={isRoot || isSelected ? 2.5 : 1.5}
             />
 
-            {/* Node Channel ID Number */}
             <text
               x={ch.x}
               y={ch.y + 4.5}
@@ -825,7 +804,6 @@ function BigTopologyGraph({
               {ch.id.slice(4)}
             </text>
 
-            {/* Node Label Below */}
             <text
               x={ch.x}
               y={ch.y + 28}
