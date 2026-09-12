@@ -113,7 +113,6 @@ export default function App() {
                 value: data.value,
                 unit: chMeta?.unit || '',
                 probability: data.probability || 0.95,
-                modelName: data.model_name || 'baseline_logreg',
                 status: 'OPEN',
                 subsystem: isMag
                   ? 'ADCS (Attitude Determination & Control System)'
@@ -469,17 +468,9 @@ export default function App() {
                       <span className="text-red-400">{activeIncident.channel}</span> (
                       {activeIncident.channelName})
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="bg-[#181824] border border-[#2C2C3C] text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded"
-                        title="Which model produced this prediction. See docs/Day25_Model_Comparison_Decision.docx for why this model is currently served."
-                      >
-                        MODEL: {activeIncident.modelName || 'baseline_logreg'}
-                      </span>
-                      <span className="bg-red-900 border border-red-500 text-white text-xs font-mono px-2 py-0.5 rounded font-bold">
-                        PROBABILITY: {(activeIncident.probability * 100).toFixed(1)}%
-                      </span>
-                    </div>
+                    <span className="bg-red-900 border border-red-500 text-white text-xs font-mono px-2 py-0.5 rounded font-bold">
+                      PROBABILITY: {(activeIncident.probability * 100).toFixed(1)}%
+                    </span>
                   </div>
                 </div>
 

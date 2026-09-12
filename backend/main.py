@@ -60,6 +60,7 @@ async def stream_telemetry(websocket: WebSocket) -> None:
                 channel=str(reading["channel"]),
                 prediction=result.prediction,
                 probability=result.probability,
+                model_name=result.model_name,
             )
             results.append(stored)
             # Safely serialize features for both Pydantic v1 (.dict()) and v2 (.model_dump())
@@ -69,6 +70,7 @@ async def stream_telemetry(websocket: WebSocket) -> None:
                 **reading,
                 "prediction": result.prediction,
                 "probability": result.probability,
+                "model_name": result.model_name,
                 "features": feat_dict,
             })
     except WebSocketDisconnect:

@@ -30,6 +30,13 @@ class FeatureInput(BaseModel):
 class PredictionResponse(BaseModel):
     prediction: int = Field(ge=0, le=1)
     probability: float = Field(ge=0.0, le=1.0)
+    model_name: str = Field(
+        default="baseline_logreg",
+        description="Which model produced this prediction. Currently always "
+                    "the validated Logistic Regression baseline (F1=0.848 offline); "
+                    "the dynamic-graph model has not yet outperformed it "
+                    "(see docs/Day25_Model_Comparison_Decision.docx) and is not served.",
+    )
 
 
 class StoredResult(PredictionResponse):

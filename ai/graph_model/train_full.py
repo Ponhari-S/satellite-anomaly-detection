@@ -52,7 +52,22 @@ def main():
 
     model = DynamicGraphAnomalyDetector(num_nodes=len(CHANNELS), node_feature_dim=19, hidden_dim=32)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    loss_fn = nn.BCEWithLogitsLoss(reduction="none")
+
+    # Class-imbalance correction, matching the baseline's class_weight="balanced".
+    # Without this, BCEWithLogitsLoss can converge to just predicting the
+    # majority class if the training set's anomaly rate is far from 50%.
+    train_labels_flat = []
+    for _, _, labels, active_mask in train_sequences:
+        for i in range(len(CHANNELS)):
+            if active_mask[i] > 0:
+                train_labels_flat.append(labels[i])
+    train_labels_flat = np.array(train_labels_flat)
+    n_pos = train_labels_flat.sum()
+    n_neg = len(train_labels_flat) - n_pos
+    pos_weight = torch.tensor([n_neg / n_pos]) if n_pos > 0 else torch.tensor([1.0])
+    print(f"Train anomaly rate: {train_labels_flat.mean():.3f} | pos_weight = {pos_weight.item():.3f}")
+
+    loss_fn = nn.BCEWithLogitsLoss(reduction="none", pos_weight=pos_weight)
 
     print(f"\nTraining for {EPOCHS} epochs...")
     for epoch in range(EPOCHS):
