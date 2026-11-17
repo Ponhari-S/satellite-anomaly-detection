@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 
 const BACKEND_WS = 'ws://127.0.0.1:8000/stream'
 
@@ -24,7 +24,6 @@ function useChannelGraph() {
   const [graphSource, setGraphSource] = useState('loading')
 
   useEffect(() => {
-<<<<<<< HEAD
     // 1. Initial load from precomputed baseline channel graph
     fetch('http://127.0.0.1:8000/channel-graph')
       .then((res) => res.json())
@@ -35,22 +34,12 @@ function useChannelGraph() {
           setGraphSource('real')
           console.log(`[channel-graph] loaded ${formatted.length} computed edges`)
         }
-=======
-    fetch('http://127.0.0.1:8000/channel-graph')
-      .then((res) => res.json())
-      .then((data) => {
-        const formatted = data.edges.map((e) => [e.source, e.target, e.strength])
-        setEdges(formatted)
-        setGraphSource('real')
-        console.log(`[channel-graph] loaded ${formatted.length} real, computed edges`)
->>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
       })
       .catch((err) => {
         console.error('[channel-graph] failed to load real edges, using fallback:', err)
         setEdges(FALLBACK_EDGES)
         setGraphSource('fallback')
       })
-<<<<<<< HEAD
 
     // 2. Periodically poll live dynamic graph correlations from streaming buffer
     const interval = setInterval(() => {
@@ -67,8 +56,6 @@ function useChannelGraph() {
     }, 4000)
 
     return () => clearInterval(interval)
-=======
->>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
   }, [])
 
   return { edges, graphSource }
@@ -145,11 +132,7 @@ export default function App() {
                 value: data.value,
                 unit: chMeta?.unit || '',
                 probability: data.probability || 0.95,
-<<<<<<< HEAD
                 modelName: data.model_name || 'DynamicGraph+GRU',
-=======
-                modelName: data.model_name || 'baseline_logreg',
->>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
                 status: 'OPEN',
                 subsystem: isMag
                   ? 'ADCS (Attitude Determination & Control System)'
@@ -423,20 +406,14 @@ export default function App() {
                 </p>
               </div>
               <span
-<<<<<<< HEAD
                 className={`text-xs font-mono px-3 py-1 rounded border transition-colors ${
                   channelGraphSource === 'live'
                     ? 'text-cyan-300 bg-[#0F222A] border-cyan-700 animate-pulse'
                     : channelGraphSource === 'real'
-=======
-                className={`text-xs font-mono px-3 py-1 rounded border ${
-                  channelGraphSource === 'real'
->>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
                     ? 'text-emerald-300 bg-[#0F2A1F] border-emerald-800'
                     : 'text-amber-300 bg-[#2A1F0F] border-amber-800'
                 }`}
                 title={
-<<<<<<< HEAD
                   channelGraphSource === 'live'
                     ? 'Dynamic graph computed in real time from live streaming buffer'
                     : channelGraphSource === 'real'
@@ -448,15 +425,6 @@ export default function App() {
                   ? '⚡ Live Dynamic Graph'
                   : channelGraphSource === 'real'
                   ? 'Baseline computed graph'
-=======
-                  channelGraphSource === 'real'
-                    ? 'Loaded from /channel-graph — computed from real telemetry correlations'
-                    : 'Backend unreachable — showing fallback layout, not real data'
-                }
-              >
-                {channelGraphSource === 'real'
-                  ? 'Live computed graph'
->>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
                   : channelGraphSource === 'loading'
                   ? 'Loading graph...'
                   : 'Fallback layout'}
@@ -529,15 +497,9 @@ export default function App() {
                     <div className="flex items-center gap-2">
                       <span
                         className="bg-[#181824] border border-[#2C2C3C] text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded"
-<<<<<<< HEAD
                         title="Active anomaly detector in production: Dynamic Graph + GRU with Baseline Logistic Regression fallbacks"
                       >
                         MODEL: {activeIncident.modelName || 'DynamicGraph+GRU'}
-=======
-                        title="Which model produced this prediction. See docs/Day25_Model_Comparison_Decision.docx for why this model is currently served."
-                      >
-                        MODEL: {activeIncident.modelName || 'baseline_logreg'}
->>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
                       </span>
                       <span className="bg-red-900 border border-red-500 text-white text-xs font-mono px-2 py-0.5 rounded font-bold">
                         PROBABILITY: {(activeIncident.probability * 100).toFixed(1)}%
