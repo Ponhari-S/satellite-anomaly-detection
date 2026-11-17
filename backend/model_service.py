@@ -1,13 +1,19 @@
+<<<<<<< HEAD
 """Loading and inference for OrbitGuard models: Baseline Logistic Regression and Dynamic Graph + GRU."""
 
 import json
 import logging
 import os
 from collections import deque
+=======
+"""Loading and inference for the saved OrbitGuard baseline model."""
+
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 from functools import lru_cache
 from pathlib import Path
 
 import joblib
+<<<<<<< HEAD
 import numpy as np
 import pandas as pd
 import torch
@@ -28,6 +34,16 @@ CHANNELS = [
     "CADC0884", "CADC0886", "CADC0888", "CADC0890", "CADC0892", "CADC0894"
 ]
 CHANNEL_TO_INDEX = {ch: idx for idx, ch in enumerate(CHANNELS)}
+=======
+import pandas as pd
+
+from backend.schemas import FeatureInput, PredictionResponse
+
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+MODEL_PATH = ROOT_DIR / "ai" / "baseline_logreg.pkl"
+SCALER_PATH = ROOT_DIR / "ai" / "feature_scaler.pkl"
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 
 FEATURE_NAMES = [
     "sampling", "duration", "len", "mean", "var", "std", "kurtosis", "skew",
@@ -37,6 +53,7 @@ FEATURE_NAMES = [
 ]
 
 
+<<<<<<< HEAD
 class DynamicGraphAnomalyDetector(nn.Module):
     """Spatio-temporal Dynamic Graph + GRU model matching paper Section IV-D2."""
 
@@ -69,11 +86,17 @@ class DynamicGraphAnomalyDetector(nn.Module):
 @lru_cache
 def load_artifacts():
     """Load baseline artifacts once per process."""
+=======
+@lru_cache
+def load_artifacts():
+    """Load once per process so each request does not touch disk."""
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
     if not MODEL_PATH.is_file() or not SCALER_PATH.is_file():
         raise RuntimeError(
             "Saved model artifacts are missing. Expected "
             f"{MODEL_PATH.name} and {SCALER_PATH.name} in ai/."
         )
+<<<<<<< HEAD
     logreg_model = joblib.load(MODEL_PATH)
     scaler = joblib.load(SCALER_PATH)
 
@@ -189,10 +212,18 @@ def predict(
     else:
         model_type = model_type.lower()
 
+=======
+    return joblib.load(MODEL_PATH), joblib.load(SCALER_PATH)
+
+
+def predict(features: FeatureInput) -> PredictionResponse:
+    model, scaler = load_artifacts()
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
     values = pd.DataFrame(
         [[getattr(features, name) for name in FEATURE_NAMES]], columns=FEATURE_NAMES
     )
     scaled_values = scaler.transform(values)
+<<<<<<< HEAD
 
     # Check for near-zero flatline dropout fault (Section VI-A of paper)
     # When a sensor flatlines to exact zero for >= 10 readings, variance collapses.
@@ -221,3 +252,8 @@ def predict(
         probability=prob,
         model_name="LogisticRegression",
     )
+=======
+    probability = float(model.predict_proba(scaled_values)[0, 1])
+    prediction = int(model.predict(scaled_values)[0])
+    return PredictionResponse(prediction=prediction, probability=probability)
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94

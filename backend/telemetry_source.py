@@ -1,7 +1,10 @@
 """Multi-channel telemetry source for live WebSocket streaming."""
 
 import asyncio
+<<<<<<< HEAD
 import os
+=======
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 from collections.abc import AsyncIterator
 from pathlib import Path
 import pandas as pd
@@ -16,14 +19,22 @@ def _get_chronological_records() -> pd.DataFrame:
     global _cached_df
     if _cached_df is None:
         df = pd.read_csv(RAW_DATASET_PATH)
+<<<<<<< HEAD
         # Timestamps in ISO format sort correctly as strings with near-zero latency
         df["timestamp_str"] = df["timestamp"].astype(str)
         df = df.sort_values("timestamp_str").reset_index(drop=True)
+=======
+        df["timestamp_dt"] = pd.to_datetime(df["timestamp"])
+        # Sort chronologically so all 9 channels interleave smoothly across the mission timeline
+        df = df.sort_values("timestamp_dt").reset_index(drop=True)
+        df["timestamp_str"] = df["timestamp_dt"].dt.strftime("%Y-%m-%d %H:%M:%S")
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
         _cached_df = df
     return _cached_df
 
 
 async def multi_channel_telemetry_source(
+<<<<<<< HEAD
     delay_between_frames: float | None = None,
 ) -> AsyncIterator[dict]:
     """
@@ -36,6 +47,12 @@ async def multi_channel_telemetry_source(
         delay_between_frames = float(env_delay) if env_delay else 0.08
 
     df = _get_chronological_records()
+=======
+    delay_between_frames: float = 0.08,
+) -> AsyncIterator[dict]:
+    """Yield all 9 OPS-SAT channels chronologically in real-time."""
+    df = await asyncio.to_thread(_get_chronological_records)
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 
     channels = df["channel"].to_numpy()
     timestamps = df["timestamp_str"].to_numpy()
@@ -61,8 +78,12 @@ async def multi_channel_telemetry_source(
                 "train": int(trains[i]),
             }
             yield reading
+<<<<<<< HEAD
             if delay_between_frames and delay_between_frames > 0:
                 await asyncio.sleep(delay_between_frames)
+=======
+            await asyncio.sleep(delay_between_frames)
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 
 
 telemetry_source = multi_channel_telemetry_source

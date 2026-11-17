@@ -13,6 +13,7 @@ def features_from_telemetry(reading: dict) -> FeatureInput:
     return real_features_from_telemetry(reading)
 
 
+<<<<<<< HEAD
 def score_and_store(reading: dict, model_type: str | None = None) -> StoredResult:
     ch = str(reading.get("channel", ""))
     prediction = predict(features_from_telemetry(reading), channel=ch, model_type=model_type)
@@ -22,6 +23,13 @@ def score_and_store(reading: dict, model_type: str | None = None) -> StoredResul
         prediction=prediction.prediction,
         probability=prediction.probability,
         model_name=prediction.model_name,
+=======
+def score_and_store(reading: dict) -> StoredResult:
+    prediction = predict(features_from_telemetry(reading))
+    result = StoredResult(
+        timestamp=str(reading["timestamp"]), channel=str(reading["channel"]),
+        prediction=prediction.prediction, probability=prediction.probability,
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
     )
     results.append(result)
     return result

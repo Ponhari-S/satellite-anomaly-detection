@@ -27,8 +27,11 @@ def load_channel_data(csv_path: str, channel: str) -> pd.DataFrame:
 
 
 def compute_playback_delays(sub: pd.DataFrame, total_seconds: float, max_gap: float) -> list:
+<<<<<<< HEAD
     if total_seconds <= 0:
         return [0.0] * len(sub)
+=======
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
     real_gaps = sub["timestamp"].diff().dt.total_seconds().fillna(0)
     capped_gaps = real_gaps.clip(upper=real_gaps[real_gaps > 0].quantile(0.99) if (real_gaps > 0).any() else 1)
     total_capped = capped_gaps.sum()

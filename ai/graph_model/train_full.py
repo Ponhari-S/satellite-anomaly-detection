@@ -5,7 +5,10 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+<<<<<<< HEAD
 from pathlib import Path
+=======
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 from graph_construction import build_graph_snapshots, CHANNELS
@@ -140,6 +143,7 @@ def main():
         print("This is a legitimate, honest result given the small training set")
         print(f"({len(train_sequences)} sequences) — worth reporting as-is, not concealed.")
 
+<<<<<<< HEAD
     save_path = Path("ai/graph_model/graph_model.pt")
     save_path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = {
@@ -156,6 +160,8 @@ def main():
     torch.save(checkpoint, Path("ai/graph_model.pt"))
     print(f"\n[Artifact Saved] Trained Dynamic Graph + GRU model weights saved to:\n  - {save_path}\n  - ai/graph_model.pt")
 
+=======
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 
 if __name__ == "__main__":
     main()

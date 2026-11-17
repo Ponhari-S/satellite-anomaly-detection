@@ -5,6 +5,7 @@ from scipy.signal import find_peaks
 from backend.schemas import FeatureInput
 
 
+<<<<<<< HEAD
 class _AutonomousSegmentBuffer:
     """
     Autonomous streaming buffer for a single telemetry channel.
@@ -24,10 +25,23 @@ class _AutonomousSegmentBuffer:
         self.gap_threshold_seconds = gap_threshold_seconds
 
     def reset(self, segment_id=None):
+=======
+class _SegmentBuffer:
+    """Holds the readings seen so far for one channel's CURRENT segment."""
+    __slots__ = ("segment_id", "timestamps", "values")
+
+    def __init__(self):
+        self.segment_id = None
+        self.timestamps = []
+        self.values = []
+
+    def reset(self, segment_id):
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
         self.segment_id = segment_id
         self.timestamps = []
         self.values = []
 
+<<<<<<< HEAD
     def append(self, timestamp: pd.Timestamp, value: float, segment_id: int | None = None):
         # 1. Historical explicit segment change (if segment_id is present and known)
         if segment_id is not None and self.segment_id is not None and segment_id != self.segment_id:
@@ -52,12 +66,33 @@ class _AutonomousSegmentBuffer:
 
 
 _channel_buffers: dict[str, _AutonomousSegmentBuffer] = defaultdict(_AutonomousSegmentBuffer)
+=======
+    def append(self, timestamp, value):
+        self.timestamps.append(timestamp)
+        self.values.append(value)
+
+_channel_buffers: dict[str, _SegmentBuffer] = defaultdict(_SegmentBuffer)
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 
 
 def _count_peaks(values: np.ndarray) -> int:
     """
     Count peaks using scipy find_peaks with a prominence threshold of
+<<<<<<< HEAD
     0.5x the array's own standard deviation, matching paper Section III-B.
+=======
+    0.5x the array's own standard deviation.
+
+    Why: a naive "any point higher than both neighbors" definition counts
+    every tiny noise wiggle as a peak (verified: gave 19 peaks on a real
+    segment where the training data says 1). Comparing against segments.csv
+    across 8 test segments, a prominence threshold of 0.5*std reproduces
+    n_peaks exactly in all 8 cases and is closely aligned on the
+    diff/diff2/smoothed peak counts too. This will not be byte-identical
+    to the original (unknown) feature engineering in every case, but it
+    is a validated, order-of-magnitude-correct approximation, a major
+    improvement over the previous no-threshold version.
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
     """
     if len(values) < 3:
         return 0
@@ -76,20 +111,31 @@ def _smooth(values: np.ndarray, window: int) -> np.ndarray:
 
 
 def reset_window(channel: str) -> None:
+<<<<<<< HEAD
     """Clear the buffered segment for a channel."""
+=======
+    """Clear the buffered segment for a channel (useful between test runs)."""
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
     _channel_buffers.pop(channel, None)
 
 
 def features_from_telemetry(reading: dict) -> FeatureInput:
     """
+<<<<<<< HEAD
     Extract the 19 statistical and signal processing features from the
     autonomous per-channel streaming buffer.
     
     Works with both historical pre-segmented data and continuous unsegmented live telemetry.
+=======
+    Append this reading to its channel's current segment buffer (starting
+    a fresh buffer if the segment ID just changed), then compute real
+    segment-style features from everything buffered so far in that segment.
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
     """
     channel = str(reading["channel"])
     timestamp = pd.to_datetime(reading["timestamp"])
     value = float(reading["value"])
+<<<<<<< HEAD
     segment_id = reading.get("segment")
     if segment_id is not None:
         try:
@@ -99,6 +145,16 @@ def features_from_telemetry(reading: dict) -> FeatureInput:
 
     buffer = _channel_buffers[channel]
     buffer.append(timestamp, value, segment_id=segment_id)
+=======
+    segment_id = int(reading.get("segment", 0))
+
+    buffer = _channel_buffers[channel]
+
+    if buffer.segment_id != segment_id:
+        buffer.reset(segment_id)
+
+    buffer.append(timestamp, value)
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
 
     timestamps = buffer.timestamps
     values = np.array(buffer.values, dtype=float)
@@ -153,4 +209,8 @@ def features_from_telemetry(reading: dict) -> FeatureInput:
         diff_var=diff_var, diff2_var=diff2_var, gaps_squared=gaps_squared,
         len_weighted=len_weighted, var_div_duration=var_div_duration,
         var_div_len=var_div_len,
+<<<<<<< HEAD
     )
+=======
+    )
+>>>>>>> e361549f8885c4846fb32beefbc37ed519dadc94
